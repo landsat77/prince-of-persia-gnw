@@ -29,6 +29,8 @@ void pop_core_run(const pop_core_options_t *opts) __attribute__((noreturn));
 /* True while the game is waiting between two frames of a level: the only
  * moment where a savestate can be written. */
 bool pop_core_can_save(void);
+/* May the platform run the pause menu now? */
+bool pop_core_menu_allowed(void);
 /* Write a savestate (SDLPoP quicksave format) to `path`. */
 bool pop_core_save_state(const char *path);
 /* Restore a savestate. Applied at the start of the next game frame. */

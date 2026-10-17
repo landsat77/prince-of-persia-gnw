@@ -118,7 +118,16 @@ void play_level(int level_number) {
 		#endif
 		draw_level_first();
 		show_copyprot(0);
+#ifdef GNW
+		// While a level runs, the pause menu (savestates) only opens at the
+		// safe point of play_level_2() (see pop_core_menu_allowed()).
+		extern int gnw_level_active;
+		gnw_level_active = 1;
 		level_number = play_level_2();
+		gnw_level_active = 0;
+#else
+		level_number = play_level_2();
+#endif
 		// hacked...
 #ifdef USE_COPYPROT
 		if (enable_copyprot && level_number == custom->copyprot_level && !demo_mode) {
@@ -390,8 +399,15 @@ int play_level_2() {
 				remove_flash_if_hurt();
 #ifdef GNW
 				// Savestates can be made while the game waits for the next frame.
+				// The platform also gets one guaranteed call here, every frame:
+				// on a slow device the frame can take longer than the timer and
+				// do_simple_wait() then returns without waiting at all.
 				extern int gnw_in_level_loop;
 				gnw_in_level_loop = 1;
+				pop_plat_safe_point();
+				// do_simple_wait() only reads the keys while it waits: make
+				// sure they are read at least once per frame.
+				process_events();
 				do_simple_wait(timer_1);
 				gnw_in_level_loop = 0;
 #else

@@ -8,8 +8,11 @@
 #include "pop_core.h"
 
 /* Set by play_level_2() (seg003.c, GNW patch) around the wait between two
- * frames of the main game loop. */
+ * frames of the main game loop: the only moment where the game state is
+ * consistent and can be saved. */
 int gnw_in_level_loop;
+/* Set by play_level() (seg003.c, GNW patch) while play_level_2() runs. */
+int gnw_level_active;
 
 static pop_core_options_t core_opts;
 static char pending_load_path[256];
@@ -119,6 +122,14 @@ void gnw_pop_safe_point(void)
          * new game. It resets it itself when it goes back to the title. */
         boot_load = false;
     }
+}
+
+/* Outside a level (title, cutscenes) the menu can open at any time. In a
+ * level it must open at the safe point, otherwise a savestate would be
+ * refused: play_level_2() calls pop_plat_safe_point() once per frame. */
+bool pop_core_menu_allowed(void)
+{
+    return !gnw_level_active || gnw_in_level_loop;
 }
 
 bool pop_core_can_save(void)

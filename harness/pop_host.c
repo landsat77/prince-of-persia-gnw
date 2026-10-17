@@ -18,6 +18,13 @@
  *     -q <file>        quicksave test: save to <file> at the time given by -Q
  *     -Q <ms>          time of the quicksave
  *     -L <file>        load this quicksave right after the start
+ *     -F <ms>          slow device: every frame of a level costs <ms> more
+ *                      (the G&W can be slower than the 12 fps game timer)
+ *
+ * The quicksave of -q/-Q is made like on the device: the pause menu opens at
+ * the first service tick after <ms> where the platform may run it (see
+ * pop_core_menu_allowed()), and the save fails if the game is not at a point
+ * where it can be saved.
  *
  * Distributed under the GPLv3 (same license as SDLPoP).
  */
@@ -149,8 +156,38 @@ static void __attribute__((noreturn)) finish(int code)
 }
 
 static int in_service;
+static uint64_t frame_cost_us;
+static uint64_t last_menu_tick;
+
+/* The device runs its input loop (pause menu) every 16 ms of service. */
+static void menu_tick(bool safe_point)
+{
+    if (!safe_point && now_us - last_menu_tick < 16000)
+        return;
+    if (!pop_core_menu_allowed())
+        return; /* deferred to the next safe point, like main_pop.c */
+    last_menu_tick = now_us;
+    if (qs_save_path && !qs_saved && now_us >= qs_save_at) {
+        qs_saved = true;
+        bool ok = pop_core_save_state(qs_save_path);
+        printf("pop_host: saving %s at %llu ms: %s\n", qs_save_path,
+               (unsigned long long)(now_us / 1000), ok ? "ok" : "FAILED");
+    }
+}
+
+static void service(int in_delay, bool safe_point);
+
+void pop_plat_safe_point(void)
+{
+    service(0, true);
+}
 
 void pop_plat_service(int in_delay)
+{
+    service(in_delay, false);
+}
+
+static void service(int in_delay, bool safe_point)
 {
     if (in_service)
         return;
@@ -184,10 +221,17 @@ void pop_plat_service(int in_delay)
         }
         audio_frames_done += 256;
     }
-    if (qs_save_path && !qs_saved && now_us >= qs_save_at && in_delay && pop_core_can_save()) {
-        qs_saved = true;
-        printf("pop_host: saving %s: %s\n", qs_save_path, pop_core_save_state(qs_save_path) ? "ok" : "FAILED");
+    menu_tick(safe_point);
+#ifdef POP_TRACE
+    {
+        extern int gnw_level_active;
+        static int last_active = -1;
+        if (gnw_level_active != last_active) {
+            printf("TRACE %llu ms: level_active=%d\n", (unsigned long long)(now_us / 1000), gnw_level_active);
+            last_active = gnw_level_active;
+        }
     }
+#endif
     in_service = 0;
     if (now_us >= end_us)
         finish(0);
@@ -198,6 +242,11 @@ void pop_plat_present(const uint16_t *pixels, int pitch)
     last_frame = pixels;
     last_pitch = pitch;
     frames_presented++;
+    /* slow device simulation: only the frames of a level (the cutscene
+     * fades present many times per tick and would never end) */
+    extern int gnw_level_active;
+    if (gnw_level_active)
+        now_us += frame_cost_us;
 }
 
 bool pop_plat_find_file(const char *name, const uint8_t **data, uint32_t *size)
@@ -246,6 +295,7 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "-q") && v) { qs_save_path = v; i++; }
         else if (!strcmp(a, "-Q") && v) { qs_save_at = strtoull(v, NULL, 10) * 1000; i++; }
         else if (!strcmp(a, "-L") && v) { qs_load_path = v; i++; }
+        else if (!strcmp(a, "-F") && v) { frame_cost_us = strtoull(v, NULL, 10) * 1000; i++; }
         else if (!strcmp(a, "-S") && v) {
             char *s = strdup(v);
             for (char *tok = strtok(s, ","); tok && n_shots < 128; tok = strtok(NULL, ","))

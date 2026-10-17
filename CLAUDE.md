@@ -23,8 +23,15 @@ is the SDK's generic porting guide (memory map, audio, ABI).
 - `pop_libc.c`: strtoimax, powf, log2f, atan2, strdup — not on the ABI.
   `ungetc` is not on the ABI either (use fseek -1).
 - Savestates = SDLPoP quicksave, only while `gnw_in_level_loop` (set around
-  `do_simple_wait()` in `play_level_2()`). Loads are deferred to the next
-  `check_quick_op()`. Boot loads start the saved level then restore it. Never
+  `do_simple_wait()` in `play_level_2()`). When a frame is slower than the
+  12 fps timer (common on the G&W), `do_simple_wait()` returns without
+  waiting and never calls SDL_Delay/SDL_PollEvent: no platform service at
+  all. Hence the GNW patch calls `pop_plat_safe_point()` + `process_events()`
+  every frame, and during a level (`gnw_level_active`) the pause menu only
+  runs there (`pop_core_menu_allowed()`; buttons are latched elsewhere).
+  `gnw_level_active` is cleared after start_game()'s setjmp (longjmp back to
+  the title). Test slow devices with the harness `-F <ms>` option.
+  Loads are deferred to the next `check_quick_op()`. Boot loads start the saved level then restore it. Never
   reset `start_level` to -1 after a load: SDLPoP reads `start_level < 0` as
   "title screen" and the next key starts a new game.
 - Harness: `make harness` (glibc, same port code except main_pop.c /

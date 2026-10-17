@@ -354,6 +354,34 @@ static void update_keys(const odroid_gamepad_state_t *j)
 /* ------------------------------------------------------------------ */
 /* Service: called whenever the game waits or polls events            */
 /* ------------------------------------------------------------------ */
+/*
+ * The pause menu (common_emu_input_loop) must run at a moment where the game
+ * can be saved, otherwise "Save" is refused. In a level that is only the
+ * safe point of the main loop (pop_plat_safe_point(), once per frame): when
+ * the device is slower than the game's 12 fps timer, the game never waits
+ * between two frames and a menu opened from any other service call would
+ * always be at the wrong moment. Elsewhere in a level, the buttons are only
+ * remembered (latched_buttons) so that a short press on PAUSE is not lost.
+ */
+static odroid_gamepad_state_t latched_buttons;
+
+static void run_input_loop(void)
+{
+    for (int i = 0; i < ODROID_INPUT_MAX; i++)
+        joystick.values[i] |= latched_buttons.values[i];
+    memset(&latched_buttons, 0, sizeof(latched_buttons));
+
+    bool_label(music_value, options.music);
+    bool_label(sound_value, options.sound);
+    bool_label(fixes_value, options.fixes);
+
+    common_emu_input_loop(&joystick, game_options, &repaint);
+
+    /* last_tick_ms is refreshed after a menu so that we don't rush */
+    last_tick_ms = get_elapsed_time();
+    last_dma_counter = dma_counter;
+}
+
 void pop_plat_service(int in_delay)
 {
     if (in_service)
@@ -367,17 +395,14 @@ void pop_plat_service(int in_delay)
     if (now - last_tick_ms >= POP_TICK_MS && !lcd_is_swap_pending()) {
         last_tick_ms = now;
 
-        bool_label(music_value, options.music);
-        bool_label(sound_value, options.sound);
-        bool_label(fixes_value, options.fixes);
-
         odroid_input_read_gamepad(&joystick);
-        common_emu_input_loop(&joystick, game_options, &repaint);
+        if (pop_core_menu_allowed()) {
+            run_input_loop();
+        } else {
+            for (int i = 0; i < ODROID_INPUT_MAX; i++)
+                latched_buttons.values[i] |= joystick.values[i];
+        }
         update_keys(&joystick);
-
-        /* last_tick_ms is refreshed after a menu so that we don't rush */
-        last_tick_ms = get_elapsed_time();
-        last_dma_counter = dma_counter;
 
         if (frame_dirty || common_emu_state.overlay != 0 || common_emu_state.clear_frames)
             frame_dirty = true;
@@ -388,6 +413,27 @@ void pop_plat_service(int in_delay)
     in_service = 0;
     if (in_delay)
         __WFI(); /* SysTick (1 kHz) or the audio DMA wake us up */
+}
+
+void pop_plat_safe_point(void)
+{
+    if (in_service)
+        return;
+    in_service = 1;
+
+    wdog_refresh();
+    feed_audio();
+    /* the menu draws over the current frame */
+    lcd_sleep_while_swap_pending();
+
+    odroid_gamepad_state_t now;
+    odroid_input_read_gamepad(&now);
+    joystick = now;
+    run_input_loop();
+    update_keys(&joystick);
+    last_tick_ms = get_elapsed_time();
+
+    in_service = 0;
 }
 
 /* ------------------------------------------------------------------ */

@@ -87,8 +87,9 @@ harness/build/pop_host PrinceOfPersia.pop -t 30000 -e 1000 -o /tmp/out -w /tmp/o
 harness/build/pop_host PrinceOfPersia.pop -l 1 -s "3000:RIGHT:1,4000:RIGHT:0" -o /tmp/out
 ```
 
-`-q file -Q ms` writes a savestate at that time, `-L file` restores one at
-start, `-H kb` changes the heap size. Build with `OPT="-O2 -g -DPOP_TRACE"`
+`-q file -Q ms` writes a savestate at that time (like the pause menu would),
+`-L file` restores one at start, `-H kb` changes the heap size, `-F ms`
+makes every frame of a level that much slower (a slow device). Build with `OPT="-O2 -g -DPOP_TRACE"`
 to print the prince's position on save / load / exit.
 
 ## Layout

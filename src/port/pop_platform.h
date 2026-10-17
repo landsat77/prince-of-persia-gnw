@@ -28,6 +28,12 @@ uint64_t pop_plat_time_us(void);
  * open its own menus. */
 void pop_plat_service(int in_delay);
 
+/* Called once per frame of a level, at the point where the game can be
+ * saved (pop_core_can_save() is true there if the prince is alive). The
+ * platform runs its pause menu here when pop_core_menu_allowed() kept it
+ * from opening elsewhere. */
+void pop_plat_safe_point(void);
+
 /* Show a 320x200 RGB565 frame. pitch is in bytes. */
 void pop_plat_present(const uint16_t *pixels, int pitch);
 

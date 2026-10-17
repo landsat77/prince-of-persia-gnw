@@ -209,6 +209,12 @@ void start_game() {
 		clear_screen_and_sounds();
 		longjmp(/*&*/setjmp_buf,-1);
 	}
+#ifdef GNW
+	// We may come back here with longjmp() from inside a level.
+	extern int gnw_level_active, gnw_in_level_loop;
+	gnw_level_active = 0;
+	gnw_in_level_loop = 0;
+#endif
 	release_title_images(); // added
 	free_optsnd_chtab(); // added
 #ifdef USE_COPYPROT
