@@ -179,6 +179,9 @@ void init_game_main() {
 	init_lighting();
 #endif
 	load_all_sounds();
+#ifdef GNW
+	gnw_pop_sounds_loaded(); // pop_core.c: music pre-rendering (tools)
+#endif
 
 	hof_read();
 	show_splash(); // added

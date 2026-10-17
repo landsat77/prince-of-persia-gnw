@@ -166,6 +166,81 @@ bool pop_core_load_state(const char *path)
     return true;
 }
 
+/* ------------------------------------------------------------------ */
+/* Music pre-rendering (tools only)                                    */
+/* ------------------------------------------------------------------ */
+/* The MIDI music is synthesized by an OPL3 emulator, which costs more CPU
+ * than the rest of the game together. The music pieces are fixed, so the
+ * pack tool renders them once on the PC with this very code (through the
+ * Linux harness, option -R) and stores them in the pack (see gnw_music.c). */
+#ifdef POP_DEVICE
+/* Not needed on the console. */
+void pop_core_set_render_dir(const char *dir)
+{
+    (void)dir;
+}
+
+void gnw_pop_sounds_loaded(void)
+{
+}
+#else
+static const char *render_dir;
+
+void pop_core_set_render_dir(const char *dir)
+{
+    render_dir = dir;
+}
+
+extern short midi_playing;
+void gnw_midi_reset_voices(void);
+void midi_callback(void *userdata, Uint8 *stream, int len);
+
+void gnw_pop_sounds_loaded(void)
+{
+    if (!render_dir)
+        return;
+    enable_music = 1;
+    is_sound_on = 1;
+    for (int i = 0; i < 58; i++) {
+        sound_buffer_type *b = sound_pointers[i];
+        if (!b || (b->type & 7) != sound_midi)
+            continue;
+        char path[512];
+        snprintf(path, sizeof(path), "%s/MIDI%02d.raw", render_dir, i);
+        FILE *f = (fopen)(path, "wb");
+        if (!f) {
+            printf("pop: cannot write %s\n", path);
+            continue;
+        }
+        current_sound = i; /* midi.c: some pieces get a tempo adjustment */
+        gnw_midi_reset_voices(); /* as if it was the first piece played */
+        play_midi_sound(b);
+/* The MIDI clock advances by audio blocks: render with the block size of
+ * the console (main_pop.c, POP_AUDIO_BUFFER_LENGTH) so that the timing is
+ * the same as when the console synthesizes the music itself. */
+#ifndef POP_RENDER_CHUNK
+#define POP_RENDER_CHUNK 368
+#endif
+        enum { CHUNK = POP_RENDER_CHUNK };
+        static short stereo[2 * CHUNK];
+        static short mono[CHUNK];
+        unsigned long frames = 0;
+        while (midi_playing) {
+            memset(stereo, 0, sizeof(stereo));
+            midi_callback(NULL, (Uint8 *)stereo, sizeof(stereo));
+            /* same downmix as pop_sdl_audio_render() */
+            for (int k = 0; k < CHUNK; k++)
+                mono[k] = (short)(((int)stereo[2 * k] + (int)stereo[2 * k + 1]) >> 1);
+            fwrite(mono, sizeof(short), CHUNK, f);
+            frames += CHUNK;
+        }
+        fclose(f);
+        printf("pop: music %2d: %6.2f s\n", i, frames / (double)pop_plat_audio_rate());
+    }
+    pop_plat_quit(0);
+}
+#endif /* POP_DEVICE */
+
 void pop_core_set_music(bool on)
 {
     core_opts.music = on;

@@ -36,6 +36,18 @@ is the SDK's generic porting guide (memory map, audio, ABI).
   "title screen" and the next key starts a new game.
 - Harness: `make harness` (glibc, same port code except main_pop.c /
   pop_libc.c). `-DPOP_TRACE` prints the prince's position on save/load/exit.
+- Music: OPL3 synthesis was ~85 % of the CPU in a level. The harness (`-R dir`,
+  `gnw_pop_sounds_loaded()` in pop_core.c, compiled out on the device by
+  POP_DEVICE) renders every MIDI piece to raw PCM; `tools/pop_pack.py` stores
+  them as `MIDInn.MUS` (gnw_music.c has the format); `load_sound()` (seg009.c
+  GNW) turns them into `sound_ogg` buffers played in place by the GNW
+  `ogg_callback()` (mixes, honours enable_music). Exactness: set
+  `current_sound` (per-song tempo modifiers in midi.c) and call
+  `gnw_midi_reset_voices()` (voice allocation leaks across pieces, also in
+  the live game) before each piece; render in 368-frame blocks like the
+  console (the MIDI clock advances per audio block). Verified sample-exact
+  against the live first playback. Renderers for the user's PC:
+  `tools/build_renderers.sh` (zig cc → tools/bin/pop_render-<os>-<arch>).
 
 ---
 

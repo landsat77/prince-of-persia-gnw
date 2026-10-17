@@ -48,7 +48,7 @@ PORT_C_SOURCES := \
 $(POP_PORT)/pop_sdl.c \
 $(POP_PORT)/pop_alloc.c \
 $(POP_PORT)/pop_pack.c \
-$(POP_PORT)/pop_stubs.c \
+$(POP_PORT)/gnw_music.c \
 $(POP_PORT)/pop_file.c \
 $(POP_PORT)/pop_libc.c \
 $(POP_PORT)/main_pop.c
@@ -57,7 +57,7 @@ CORE_C_SOURCES := $(SDLPOP_C_SOURCES) $(PORT_C_SOURCES)
 
 CORE_C_INCLUDES := -I$(POP_PORT)/sdl -I$(POP_PORT)
 
-CORE_C_DEFS := -DPROJECT_KIND_HOMEBREW=1
+CORE_C_DEFS := -DPROJECT_KIND_HOMEBREW=1 -DPOP_DEVICE=1
 
 # The game is CPU bound (OPL3 music synthesis, blits): optimize for speed.
 OPT := -O2

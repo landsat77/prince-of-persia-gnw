@@ -31,8 +31,24 @@ Requires Retro-Go SD **v2.0.0-rc1 or later** (firmware ABI v2).
    ```
 3. Start it from the **Homebrew** tab.
 
-The pack (about 1.2 MB) is cached in the external flash the first time
-("Caching game"); sprites and sounds are then used in place from there.
+The pack is cached in the external flash the first time ("Caching game");
+sprites, sounds and music are then used in place from there.
+
+### Music
+
+The MIDI music of the game is synthesized by an emulated AdLib (OPL3) chip,
+which costs more CPU than the rest of the game together: the game slows down
+while music plays. `pop_pack.py` therefore renders every music piece once,
+on your computer, with the game's own code, and stores it in the pack: the
+console only plays it back, with the same sound.
+
+- The renderer is in the `pop_render/` folder of the release zip (Linux,
+  Windows, macOS); `pop_pack.py` picks the right one. From a checkout, build
+  them with `tools/build_renderers.sh` (needs `pip install ziglang`) or use
+  `make harness`.
+- The music adds about 16 MB to the pack (16 bit PCM). For a console with a
+  small external flash, `--music-codec adpcm` makes it 4 MB (slight hiss), and
+  `--no-music` keeps the old behaviour (live synthesis, 1.2 MB pack).
 
 ### Mods
 

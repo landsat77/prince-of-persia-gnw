@@ -14,3 +14,4 @@ __pycache__/
 *.wav
 *.sav
 harness/save/
+tools/bin/

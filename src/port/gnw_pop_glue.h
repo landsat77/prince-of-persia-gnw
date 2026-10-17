@@ -56,5 +56,6 @@
 
 /* Hooks implemented by the platform glue (main_pop.c / pop_host.c). */
 void gnw_pop_apply_options(void);
+void gnw_pop_sounds_loaded(void);
 
 #endif

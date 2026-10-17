@@ -37,6 +37,9 @@ bool pop_core_save_state(const char *path);
 bool pop_core_load_state(const char *path);
 
 void pop_core_set_music(bool on);
+/* Tools: render every MIDI music to <dir>/MIDInn.raw (mono, signed 16 bit,
+ * output rate) as soon as the sounds are loaded, then quit. */
+void pop_core_set_render_dir(const char *dir);
 void pop_core_set_sound(bool on);
 void pop_core_set_fixes(bool on);
 /* Restart the current level (like Ctrl+A). */

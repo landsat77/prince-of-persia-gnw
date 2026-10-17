@@ -92,6 +92,12 @@ jobs:
           name: build-artifacts
           path: dist
 
+      - name: Build the music renderers (Linux, Windows, macOS)
+        run: |
+          set -euo pipefail
+          python3 -m pip install ziglang
+          tools/build_renderers.sh
+
       - name: Stage release assets
         run: |
           set -euo pipefail

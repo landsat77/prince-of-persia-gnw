@@ -7,6 +7,20 @@ section as the GitHub Release notes.
 
 ## [Unreleased]
 
+## [v1.1.0] - 2026-10-17
+
+### Changed
+
+- Music pre-rendered by `pop_pack.py`: the OPL3 synthesis of the MIDI music
+  took most of the CPU (the game slowed down while music played). Every piece
+  is now rendered once on the PC with the game's own code (same sound, sample
+  exact with the first live playback) and only played back on the console:
+  31 times less CPU on the title screen, 7.5 times less in a level (measured
+  with the harness). Packs without music still work (live synthesis).
+- `pop_pack.py`: `--music-codec pcm|adpcm`, `--no-music`, `--renderer`.
+  Renderers for Linux, Windows and macOS in the release zip
+  (`tools/build_renderers.sh`, zig cc).
+
 ## [v1.0.1] - 2026-10-17
 
 ### Fixed

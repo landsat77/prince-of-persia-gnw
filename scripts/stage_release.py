@@ -226,6 +226,9 @@ def stage_release(
     for extra in (ROOT / "tools" / "pop_pack.py", ROOT / "INSTALL.md"):
         if extra.exists():
             members.append((extra, extra.name))
+    # Music renderers used by pop_pack.py (tools/build_renderers.sh)
+    for extra in sorted((ROOT / "tools" / "bin").glob("pop_render-*")):
+        members.append((extra, f"pop_render/{extra.name}"))
     write_zip(archive_path, members)
 
     debug_archive_name = f"{stem}-{tag_slug}-debug.zip"

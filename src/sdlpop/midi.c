@@ -641,6 +641,18 @@ void init_midi() {
 	if (dathandle != NULL) close_dat(dathandle);
 }
 
+#ifdef GNW
+// Music pre-rendering (pop_core.c): the voice allocation is not reset by
+// play_midi_sound(), so a piece depends on the pieces played before it. Put it
+// back in the state of a fresh start before rendering each piece.
+void gnw_midi_reset_voices(void) {
+	last_used_voice = 0;
+	memset(voice_channel, 0, sizeof(voice_channel));
+	memset(voice_note, 0, sizeof(voice_note));
+	memset(voice_instrument, 0, sizeof(voice_instrument));
+}
+#endif
+
 void play_midi_sound(sound_buffer_type* buffer) {
 	stop_midi();
 	if (buffer == NULL) return;

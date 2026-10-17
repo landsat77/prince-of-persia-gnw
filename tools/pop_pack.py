@@ -22,18 +22,35 @@ Accepted inputs (each one is a directory):
 
 Optional files copied as is when found: SDLPoP.ini, mod.ini, PRINCE.EXE.
 
+Music: the MIDI music is synthesized by an OPL3 emulator, the most CPU hungry
+part of the game on the Game & Watch. When the renderer is available
+(pop_render/ folder of the release zip, tools/build_renderers.sh, the test
+harness built with "make harness", or --renderer), every
+music piece is rendered once here, with the game's own code, and stored in the
+pack (MIDInn.MUS files): the console then only plays it back, with the same
+sound. Without the renderer the music is synthesized live, as before.
+  --music-codec pcm    16 bit PCM, identical sound (default, ~16 MB more)
+  --music-codec adpcm  IMA ADPCM, 4 times smaller (~4 MB), slight hiss
+  --no-music           do not pre-render the music
+
 Examples:
   python3 tools/pop_pack.py "Prince of Persia.pop" ~/dos/PRINCE
   python3 tools/pop_pack.py "Christmas of Persia.pop" ~/mods/xmas ~/dos/PRINCE
 
-Copy the resulting .pop file to /roms/pop/ on the SD card.
+Copy the resulting .pop file next to the homebrew, with the same name:
+/homebrews/PrinceOfPersia.pop for /homebrews/PrinceOfPersia.bin.
 """
 
 import argparse
+import array
 import io
 import os
+import platform
+import shutil
 import struct
+import subprocess
 import sys
+import tempfile
 
 MAGIC = b"GWPOP1\0\0"
 ENTRY_NAME_LEN = 24
@@ -471,7 +488,7 @@ def collect_dat(name, inputs, stats, verbose):
     return None, None
 
 
-def build_pack(out_path, inputs, verbose=True):
+def collect_files(inputs, verbose=True):
     stats = {"raw8": 0, "raw4": 0, "kept": 0}
     files = []
     for name in DAT_NAMES:
@@ -493,7 +510,12 @@ def build_pack(out_path, inputs, verbose=True):
     missing = [n for n in required if n not in names]
     if missing:
         sys.exit("error: missing game data: %s (is this the Prince of Persia folder?)" % ", ".join(missing))
+    if verbose:
+        print("images: %d raw 8bpp, %d raw 4bpp, %d left as is" % (stats["raw8"], stats["raw4"], stats["kept"]))
+    return files
 
+
+def write_pack(out_path, files, verbose=True):
     header_size = 16 + len(files) * (ENTRY_NAME_LEN + 8)
     offset = (header_size + 3) & ~3
     entries = []
@@ -512,9 +534,167 @@ def build_pack(out_path, inputs, verbose=True):
     with open(out_path, "wb") as fh:
         fh.write(out)
     if verbose:
-        print("images: %d raw 8bpp, %d raw 4bpp, %d left as is" % (stats["raw8"], stats["raw4"], stats["kept"]))
         print("wrote %s: %d files, %d bytes" % (out_path, len(files), total))
     return total
+
+
+# --------------------------------------------------------------------------
+# Pre-rendered music (see src/port/gnw_music.c for the .MUS format)
+MUS_RATE = 22050          # output rate of the game on the Game & Watch
+ADPCM_BLOCK = 1024
+IMA_STEP = [7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41, 45,
+            50, 55, 60, 66, 73, 80, 88, 97, 107, 118, 130, 143, 157, 173, 190, 209, 230,
+            253, 279, 307, 337, 371, 408, 449, 494, 544, 598, 658, 724, 796, 876, 963,
+            1060, 1166, 1282, 1411, 1552, 1707, 1878, 2066, 2272, 2499, 2749, 3024, 3327,
+            3660, 4026, 4428, 4871, 5358, 5894, 6484, 7132, 7845, 8630, 9493, 10442,
+            11487, 12635, 13899, 15289, 16818, 18500, 20350, 22385, 24623, 27086, 29794,
+            32767]
+IMA_INDEX = [-1, -1, -1, -1, 2, 4, 6, 8]
+
+
+def ima_adpcm_encode(samples):
+    out = bytearray()
+    step_tab, idx_tab = IMA_STEP, IMA_INDEX
+    for b in range(0, len(samples), ADPCM_BLOCK):
+        blk = samples[b:b + ADPCM_BLOCK]
+        pred = blk[0]
+        idx = 0
+        if len(blk) > 1:
+            d = abs(blk[1] - blk[0])
+            while idx < 88 and step_tab[idx] < d:
+                idx += 1
+        out += struct.pack("<hBB", pred, idx, 0)
+        codes = bytearray()
+        for s in blk:
+            step = step_tab[idx]
+            diff = s - pred
+            code = 0
+            if diff < 0:
+                code = 8
+                diff = -diff
+            dq = step >> 3
+            if diff >= step:
+                code |= 4
+                diff -= step
+                dq += step
+            step >>= 1
+            if diff >= step:
+                code |= 2
+                diff -= step
+                dq += step
+            step >>= 1
+            if diff >= step:
+                code |= 1
+                dq += step
+            pred = pred - dq if code & 8 else pred + dq
+            if pred > 32767:
+                pred = 32767
+            elif pred < -32768:
+                pred = -32768
+            idx += idx_tab[code & 7]
+            if idx < 0:
+                idx = 0
+            elif idx > 88:
+                idx = 88
+            codes.append(code)
+        if len(codes) & 1:
+            codes.append(0)
+        out += bytes(codes[i] | (codes[i + 1] << 4) for i in range(0, len(codes), 2))
+    return bytes(out)
+
+
+def encode_mus(raw, codec):
+    samples = array.array("h")
+    samples.frombytes(raw)
+    if sys.byteorder != "little":
+        samples.byteswap()
+    if codec == "pcm":
+        data = raw
+        codec_id = 0
+    else:
+        data = ima_adpcm_encode(samples)
+        codec_id = 1
+    return b"GWMU" + struct.pack("<HHII", 1, codec_id, MUS_RATE, len(samples)) + data
+
+
+def default_renderer():
+    """The renderer for this computer: pop_render-<os>-<arch> in pop_render/
+    next to this script (release zip) or in tools/bin/ (tools/build_renderers.sh),
+    else the harness built with 'make harness'."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    system = {"Linux": "linux", "Windows": "windows", "Darwin": "macos"}.get(platform.system())
+    machine = platform.machine().lower()
+    arch = "arm64" if machine in ("arm64", "aarch64") else "x86_64"
+    candidates = []
+    if system:
+        name = "pop_render-%s-%s%s" % (system, arch, ".exe" if system == "windows" else "")
+        names = [name]
+        if system == "windows" and arch == "arm64":  # x86_64 emulation
+            names.append("pop_render-windows-x86_64.exe")
+        for n in names:
+            # release zip: pop_render/ next to this script; repository: tools/bin/
+            candidates += [os.path.join(here, "pop_render", n), os.path.join(here, "bin", n),
+                           os.path.join(here, n)]
+    candidates += [os.path.join(here, "..", "harness", "build", "pop_host")]
+    for p in candidates:
+        if os.path.isfile(p):
+            prepare_executable(p)
+            return p
+    return None
+
+
+def prepare_executable(path):
+    """Make a renderer from a zip file runnable (exec bit, macOS quarantine)."""
+    if os.name != "nt" and not os.access(path, os.X_OK):
+        try:
+            os.chmod(path, os.stat(path).st_mode | 0o111)
+        except OSError:
+            pass
+    if platform.system() == "Darwin":
+        subprocess.run(["xattr", "-d", "com.apple.quarantine", path],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def render_music(files, renderer, codec, verbose=True):
+    """Render every MIDI piece with the game's own code, return .MUS files."""
+    tmp = tempfile.mkdtemp(prefix="pop_music_")
+    try:
+        pack = os.path.join(tmp, "base.pop")
+        write_pack(pack, files, verbose=False)
+        out_dir = os.path.join(tmp, "music")
+        os.mkdir(out_dir)
+        r = subprocess.run([renderer, pack, "-R", out_dir, "-o", tmp, "-t", "3600000"],
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+        if r.returncode != 0:
+            sys.stderr.write(r.stdout)
+            sys.exit("error: the music renderer failed (%s)" % renderer)
+        result = []
+        total = 0.0
+        for name in sorted(os.listdir(out_dir)):
+            if not (name.startswith("MIDI") and name.endswith(".raw")):
+                continue
+            with open(os.path.join(out_dir, name), "rb") as fh:
+                raw = fh.read()
+            total += len(raw) / 2 / MUS_RATE
+            result.append((name[:-4] + ".MUS", encode_mus(raw, codec)))
+        if verbose:
+            size = sum(len(b) for _, b in result)
+            print("music: %d pieces, %.0f s, %s, %d bytes" % (len(result), total, codec.upper(), size))
+        return result
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def build_pack(out_path, inputs, verbose=True, music=True, renderer=None, codec="pcm"):
+    files = collect_files(inputs, verbose)
+    if music:
+        renderer = renderer or default_renderer()
+        if renderer:
+            files += render_music(files, renderer, codec, verbose)
+        elif verbose:
+            print("note: music renderer not found (pop_render-* next to this script, 'make harness',\n"
+                  "      or --renderer): the music will be synthesized live on the console (slower)")
+    return write_pack(out_path, files, verbose)
 
 
 def main():
@@ -522,11 +702,18 @@ def main():
     ap.add_argument("output", help="pack to write, e.g. 'Prince of Persia.pop'")
     ap.add_argument("inputs", nargs="+", help="game / SDLPoP data / mod folders, highest priority first")
     ap.add_argument("-q", "--quiet", action="store_true")
+    ap.add_argument("--no-music", action="store_true", help="do not pre-render the music")
+    ap.add_argument("--music-codec", choices=("pcm", "adpcm"), default="pcm",
+                    help="pcm: identical sound (default); adpcm: 4 times smaller")
+    ap.add_argument("--renderer", help="music renderer (harness/build/pop_host by default)")
     args = ap.parse_args()
     for d in args.inputs:
         if not os.path.isdir(d):
             sys.exit("error: %s is not a folder" % d)
-    build_pack(args.output, args.inputs, verbose=not args.quiet)
+    if args.renderer and not os.path.isfile(args.renderer):
+        sys.exit("error: renderer %s not found" % args.renderer)
+    build_pack(args.output, args.inputs, verbose=not args.quiet, music=not args.no_music,
+               renderer=args.renderer, codec=args.music_codec)
 
 
 if __name__ == "__main__":

@@ -2197,6 +2197,23 @@ void digi_callback(void *userdata, Uint8 *stream, int len) {
 }
 #endif
 
+#ifdef GNW
+// Pre-rendered music (gnw_music.c): mixed with the digitized sounds, like
+// midi_callback() does, and silent while the music is turned off.
+int gnw_music_mix(stb_vorbis *f, short *out, int frames, int channels, int audible);
+void ogg_callback(void *userdata, Uint8 *stream, int len) {
+	int channels = digi_audiospec->channels;
+	int frames = len / (int)(sizeof(short) * channels);
+	if (gnw_music_mix(ogg_decoder, (short*) stream, frames, channels, is_sound_on && enable_music) == 0) {
+		SDL_Event event;
+		memset(&event, 0, sizeof(event));
+		event.type = SDL_USEREVENT;
+		event.user.code = userevent_SOUND;
+		ogg_playing = 0;
+		SDL_PushEvent(&event);
+	}
+}
+#else
 void ogg_callback(void *userdata, Uint8 *stream, int len) {
 	int output_channels = digi_audiospec->channels;
 	int bytes_per_sample = sizeof(short) * output_channels;
@@ -2231,6 +2248,7 @@ void ogg_callback(void *userdata, Uint8 *stream, int len) {
 		SDL_PushEvent(&event);
 	}
 }
+#endif
 
 #ifdef USE_FAST_FORWARD
 int audio_speed = 1; // =1 normally, >1 during fast forwarding
@@ -2384,6 +2402,32 @@ sound_buffer_type* load_sound(int index) {
 	sound_buffer_type* result = NULL;
 	//printf("load_sound(%d)\n", index);
 	init_digi();
+#ifdef GNW
+	// Music pre-rendered by tools/pop_pack.py ("MIDInn.MUS" in the pack): it
+	// replaces the MIDI piece and is played in place through the OGG path
+	// (gnw_music.c), which saves the OPL3 synthesis.
+	if (index >= 0 && index < 100) {
+		char name[16];
+		snprintf(name, sizeof(name), "MIDI%02d.MUS", index);
+		const uint8_t* data;
+		uint32_t size;
+		if (pop_plat_find_file(name, &data, &size)) {
+			int error = 0;
+			stb_vorbis* decoder = stb_vorbis_open_memory(data, (int)size, &error, NULL);
+			if (decoder != NULL) {
+				result = malloc(sizeof(sound_buffer_type));
+				if (result != NULL) {
+					result->type = sound_ogg;
+					result->ogg.total_length = stb_vorbis_stream_length_in_samples(decoder) * sizeof(short);
+					result->ogg.file_contents = NULL; // used in place from the pack
+					result->ogg.decoder = decoder;
+					return result;
+				}
+				stb_vorbis_close(decoder);
+			}
+		}
+	}
+#endif
 	if (enable_music && !digi_unavailable && result == NULL && index >= 0 && index < max_sound_id) {
 		//printf("Trying to load from music folder\n");
 

@@ -36,7 +36,7 @@ PORT_SOURCES = \
 	$(POP_PORT)/pop_sdl.c \
 	$(POP_PORT)/pop_alloc.c \
 	$(POP_PORT)/pop_pack.c \
-	$(POP_PORT)/pop_stubs.c \
+	$(POP_PORT)/gnw_music.c \
 	$(POP_PORT)/pop_file.c \
 	pop_host.c
 
