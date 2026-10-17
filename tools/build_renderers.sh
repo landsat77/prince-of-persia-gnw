@@ -14,9 +14,8 @@ src/sdlpop/options.c src/sdlpop/midi.c src/sdlpop/opl3.c src/port/pop_core.c"
 PORT="src/port/pop_sdl.c src/port/pop_alloc.c src/port/pop_pack.c src/port/gnw_music.c \
 src/port/pop_file.c harness/pop_host.c"
 ZIG="${ZIG:-python3 -m ziglang}"
-for target in x86_64-linux-musl:linux-x86_64 aarch64-linux-musl:linux-arm64 \
-              x86_64-windows-gnu:windows-x86_64.exe \
-              x86_64-macos:macos-x86_64 aarch64-macos:macos-arm64; do
+TARGETS="${TARGETS:-x86_64-linux-musl:linux-x86_64 aarch64-linux-musl:linux-arm64 x86_64-windows-gnu:windows-x86_64.exe x86_64-macos:macos-x86_64 aarch64-macos:macos-arm64}"
+for target in $TARGETS; do
     triple=${target%%:*}
     name=pop_render-${target#*:}
     tmp=$(mktemp -d)

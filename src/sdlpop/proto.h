@@ -524,7 +524,10 @@ bool file_exists(const char* filename);
 const char* locate_file_(const char* filename, char* path_buffer, int buffer_size);
 const char* locate_save_file_(const char* filename, char* path_buffer, int buffer_size);
 
-#ifdef _WIN32
+// GNW: the Windows build of the music renderer (tools/build_renderers.sh) uses
+// the pack / stdio layer of the port (pop_file.c), not these UTF-8 wrappers
+// (they need SDL_iconv_string, which the SDL shim does not have).
+#if defined(_WIN32) && !defined(GNW)
 
 FILE* fopen_UTF8(const char* filename, const char* mode);
 #define fopen fopen_UTF8

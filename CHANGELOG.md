@@ -7,6 +7,16 @@ section as the GitHub Release notes.
 
 ## [Unreleased]
 
+## [v1.1.1] - 2026-10-17
+
+### Fixed
+
+- Windows music renderer: it rendered nothing ("music: 0 pieces"). SDLPoP's
+  Windows-only UTF-8 file wrappers (`fopen_UTF8`, ...) replaced the file layer
+  of the port and could not write the music files. They are now disabled in
+  the GNW builds. Checked under Wine: same output as the Linux renderer.
+- `pop_pack.py` warns (with the renderer output) when no music was rendered.
+
 ## [v1.1.0] - 2026-10-17
 
 ### Changed

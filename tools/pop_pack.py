@@ -677,6 +677,11 @@ def render_music(files, renderer, codec, verbose=True):
                 raw = fh.read()
             total += len(raw) / 2 / MUS_RATE
             result.append((name[:-4] + ".MUS", encode_mus(raw, codec)))
+        if not result:
+            sys.stderr.write(r.stdout[-2000:])
+            print("warning: the renderer (%s) produced no music: the pack is written without it\n"
+                  "         (music synthesized live on the console). Please report the lines above." % renderer)
+            return result
         if verbose:
             size = sum(len(b) for _, b in result)
             print("music: %d pieces, %.0f s, %s, %d bytes" % (len(result), total, codec.upper(), size))

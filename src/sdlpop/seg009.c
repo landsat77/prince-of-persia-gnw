@@ -160,7 +160,7 @@ const char* locate_file_(const char* filename, char* path_buffer, int buffer_siz
 	}
 }
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(GNW)
 // These macros are from the SDL2 source. (src/core/windows/SDL_windows.h)
 // The pointers returned by these macros must be freed with SDL_free().
 #define WIN_StringToUTF8(S) SDL_iconv_string("UTF-8", "UTF-16LE", (char *)(S), (SDL_wcslen(S)+1)*sizeof(WCHAR))
@@ -217,7 +217,7 @@ int stat_UTF8(const char *filename_UTF8, struct stat *_Stat) {
 // - Under Windows, we'd like to directly call the Win32 API. (Note: MSVC does not include dirent.h)
 // NOTE: If we are using MinGW, we'll opt to use the Win32 API as well: dirent.h would just wrap Win32 anyway!
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(GNW)
 struct directory_listing_type {
 	WIN32_FIND_DATAW find_data;
 	HANDLE search_handle;
