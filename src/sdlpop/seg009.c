@@ -2200,11 +2200,12 @@ void digi_callback(void *userdata, Uint8 *stream, int len) {
 #ifdef GNW
 // Pre-rendered music (gnw_music.c): mixed with the digitized sounds, like
 // midi_callback() does, and silent while the music is turned off.
-int gnw_music_mix(stb_vorbis *f, short *out, int frames, int channels, int audible);
+int gnw_music_mix(stb_vorbis *f, short *out, int frames, int channels, int audible, int out_rate);
 void ogg_callback(void *userdata, Uint8 *stream, int len) {
 	int channels = digi_audiospec->channels;
 	int frames = len / (int)(sizeof(short) * channels);
-	if (gnw_music_mix(ogg_decoder, (short*) stream, frames, channels, is_sound_on && enable_music) == 0) {
+	if (gnw_music_mix(ogg_decoder, (short*) stream, frames, channels, is_sound_on && enable_music,
+	                  digi_audiospec->freq) == 0) {
 		SDL_Event event;
 		memset(&event, 0, sizeof(event));
 		event.type = SDL_USEREVENT;

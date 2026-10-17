@@ -12,9 +12,10 @@ folder of SDLPoP.
        python3 pop_pack.py PrinceOfPersia.pop /path/to/PRINCE
 
    Keep the `pop_render` folder next to `pop_pack.py`: it renders the music
-   once (about 16 MB, smooth game). Small external flash: add
-   `--music-codec adpcm` (4 MB) or `--no-music` (1.2 MB, music synthesized
-   live, slower).
+   once (pack of about 9 MB, music at 11 kHz, smooth game). Options:
+   `--music-rate 22050` (full quality, 17 MB), `--music-codec adpcm`
+   (smaller, slight hiss), `--no-music` (1.2 MB, music synthesized live,
+   slower).
 
 2. Copy to the SD card, side by side, with the same name:
 
@@ -44,9 +45,10 @@ Les données du jeu ne sont pas fournies : il faut les fichiers du jeu DOS
        python3 pop_pack.py PrinceOfPersia.pop /chemin/vers/PRINCE
 
    Laisser le dossier `pop_render` à côté de `pop_pack.py` : il pré-calcule
-   la musique (environ 16 Mo, jeu fluide). Petite flash externe : ajouter
-   `--music-codec adpcm` (4 Mo) ou `--no-music` (1,2 Mo, musique synthétisée
-   en direct, plus lent).
+   la musique (pack d'environ 9 Mo, musique en 11 kHz, jeu fluide). Options :
+   `--music-rate 22050` (qualité complète, 17 Mo), `--music-codec adpcm`
+   (plus petit, léger souffle), `--no-music` (1,2 Mo, musique synthétisée en
+   direct, plus lent).
 
 2. Copier sur la carte SD, côte à côte, avec le même nom :
 

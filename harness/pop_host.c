@@ -19,6 +19,8 @@
  *     -Q <ms>          time of the quicksave
  *     -L <file>        load this quicksave right after the start
  *     -R <dir>         render every MIDI music to <dir>/MIDInn.raw, then quit
+ *     -M <rate>        with -R: rate of the .raw files (22050, or 11025: half
+ *                      rate, low-pass filtered)
  *     -F <ms>          slow device: every frame of a level costs <ms> more
  *                      (the G&W can be slower than the 12 fps game timer)
  *
@@ -301,6 +303,7 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "-Q") && v) { qs_save_at = strtoull(v, NULL, 10) * 1000; i++; }
         else if (!strcmp(a, "-L") && v) { qs_load_path = v; i++; }
         else if (!strcmp(a, "-R") && v) { pop_core_set_render_dir(v); i++; }
+        else if (!strcmp(a, "-M") && v) { pop_core_set_render_half_rate(atoi(v) < RATE); i++; }
         else if (!strcmp(a, "-F") && v) { frame_cost_us = strtoull(v, NULL, 10) * 1000; i++; }
         else if (!strcmp(a, "-S") && v) {
             char *s = strdup(v);

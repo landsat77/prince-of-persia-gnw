@@ -46,7 +46,11 @@ is the SDK's generic porting guide (memory map, audio, ABI).
   `gnw_midi_reset_voices()` (voice allocation leaks across pieces, also in
   the live game) before each piece; render in 368-frame blocks like the
   console (the MIDI clock advances per audio block). Verified sample-exact
-  against the live first playback. Renderers for the user's PC:
+  against the live first playback. Default storage 11025 Hz: the renderer
+  (`-M 11025`) low-pass filters + decimates (63 tap Blackman sinc, delay
+  compensated); gnw_music.c plays it back with a 16 tap half-band
+  interpolator (exact 2x), linear otherwise, plain copy at the same rate
+  (22050 output is still bit identical). Renderers for the user's PC:
   `tools/build_renderers.sh` (zig cc → tools/bin/pop_render-<os>-<arch>).
 
 ---

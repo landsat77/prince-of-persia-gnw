@@ -6,6 +6,7 @@
  */
 #include "sdlpop.h"
 #include "pop_core.h"
+#include <math.h>
 
 /* Set by play_level_2() (seg003.c, GNW patch) around the wait between two
  * frames of the main game loop: the only moment where the game state is
@@ -180,20 +181,82 @@ void pop_core_set_render_dir(const char *dir)
     (void)dir;
 }
 
+void pop_core_set_render_half_rate(bool half)
+{
+    (void)half;
+}
+
 void gnw_pop_sounds_loaded(void)
 {
 }
 #else
 static const char *render_dir;
+static int render_half_rate; /* store the music at half the output rate */
 
 void pop_core_set_render_dir(const char *dir)
 {
     render_dir = dir;
 }
 
+void pop_core_set_render_half_rate(bool half)
+{
+    render_half_rate = half;
+}
+
 extern short midi_playing;
 void gnw_midi_reset_voices(void);
 void midi_callback(void *userdata, Uint8 *stream, int len);
+
+/* Decimation by 2 (e.g. 22050 -> 11025 Hz): windowed-sinc low-pass FIR so
+ * that the FM harmonics above the new Nyquist frequency do not fold back as
+ * whistles. Output y[m] = sum h[k] x[2m + D - k], D = group delay, so the
+ * music keeps its exact timing. */
+#define DECIM_TAPS 63
+#define DECIM_DELAY ((DECIM_TAPS - 1) / 2)
+static double decim_h[DECIM_TAPS];
+
+static void decim_init(void)
+{
+    const double pi = 3.14159265358979323846;
+    const double fc = 0.45 * 0.5; /* cutoff, in fractions of the input rate: 0.45 x new Nyquist */
+    double sum = 0;
+    for (int k = 0; k < DECIM_TAPS; k++) {
+        double n = k - DECIM_DELAY;
+        double sinc = n == 0 ? 2 * fc : sin(2 * pi * fc * n) / (pi * n);
+        double w = 0.42 - 0.5 * cos(2 * pi * k / (DECIM_TAPS - 1)) + 0.08 * cos(4 * pi * k / (DECIM_TAPS - 1));
+        decim_h[k] = sinc * w;
+        sum += decim_h[k];
+    }
+    for (int k = 0; k < DECIM_TAPS; k++)
+        decim_h[k] /= sum;
+}
+
+typedef struct {
+    FILE *f;
+    short hist[DECIM_TAPS]; /* last input samples, hist[0] = newest */
+    unsigned long in_count;  /* input samples received */
+    unsigned long out_count; /* output samples written */
+} decim_t;
+
+static void decim_push(decim_t *d, short x)
+{
+    memmove(&d->hist[1], &d->hist[0], (DECIM_TAPS - 1) * sizeof(short));
+    d->hist[0] = x;
+    d->in_count++;
+    /* newest input index = in_count - 1 = 2m + D */
+    long newest = (long)d->in_count - 1;
+    if (newest >= DECIM_DELAY && ((newest - DECIM_DELAY) & 1) == 0) {
+        double acc = 0;
+        for (int k = 0; k < DECIM_TAPS; k++)
+            acc += decim_h[k] * d->hist[k];
+        long v = (long)(acc < 0 ? acc - 0.5 : acc + 0.5);
+        if (v > 32767) v = 32767;
+        if (v < -32768) v = -32768;
+        short out = (short)v;
+        fwrite(&out, sizeof(short), 1, d->f);
+        d->out_count++;
+    }
+}
 
 void gnw_pop_sounds_loaded(void)
 {
@@ -201,6 +264,7 @@ void gnw_pop_sounds_loaded(void)
         return;
     enable_music = 1;
     is_sound_on = 1;
+    decim_init();
     for (int i = 0; i < 58; i++) {
         sound_buffer_type *b = sound_pointers[i];
         if (!b || (b->type & 7) != sound_midi)
@@ -224,6 +288,9 @@ void gnw_pop_sounds_loaded(void)
         enum { CHUNK = POP_RENDER_CHUNK };
         static short stereo[2 * CHUNK];
         static short mono[CHUNK];
+        static decim_t decim;
+        memset(&decim, 0, sizeof(decim));
+        decim.f = f;
         unsigned long frames = 0;
         while (midi_playing) {
             memset(stereo, 0, sizeof(stereo));
@@ -231,8 +298,18 @@ void gnw_pop_sounds_loaded(void)
             /* same downmix as pop_sdl_audio_render() */
             for (int k = 0; k < CHUNK; k++)
                 mono[k] = (short)(((int)stereo[2 * k] + (int)stereo[2 * k + 1]) >> 1);
-            fwrite(mono, sizeof(short), CHUNK, f);
+            if (render_half_rate) {
+                for (int k = 0; k < CHUNK; k++)
+                    decim_push(&decim, mono[k]);
+            } else {
+                fwrite(mono, sizeof(short), CHUNK, f);
+            }
             frames += CHUNK;
+        }
+        if (render_half_rate) {
+            /* flush the filter: ceil(frames / 2) output samples in total */
+            while (decim.out_count < (frames + 1) / 2)
+                decim_push(&decim, 0);
         }
         fclose(f);
         printf("pop: music %2d: %6.2f s\n", i, frames / (double)pop_plat_audio_rate());

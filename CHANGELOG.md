@@ -7,6 +7,18 @@ section as the GitHub Release notes.
 
 ## [Unreleased]
 
+## [v1.2.0] - 2026-10-17
+
+### Changed
+
+- The pre-rendered music is stored at 11 kHz by default: the pack is ~9 MB
+  instead of ~17 MB. It is rendered at 22 kHz with the game's code, low-pass
+  filtered (63 tap FIR) and decimated by `pop_pack.py`'s renderer, then
+  played back with a 16 tap interpolation filter (47 dB in band, images
+  43 dB down). Only the high harmonics above ~5 kHz are lost.
+  `--music-rate 22050` keeps the full rate (sound identical to live
+  synthesis). Renderer option `-M <rate>`.
+
 ## [v1.1.1] - 2026-10-17
 
 ### Fixed

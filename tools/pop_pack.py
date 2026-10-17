@@ -29,8 +29,11 @@ harness built with "make harness", or --renderer), every
 music piece is rendered once here, with the game's own code, and stored in the
 pack (MIDInn.MUS files): the console then only plays it back, with the same
 sound. Without the renderer the music is synthesized live, as before.
-  --music-codec pcm    16 bit PCM, identical sound (default, ~16 MB more)
-  --music-codec adpcm  IMA ADPCM, 4 times smaller (~4 MB), slight hiss
+  --music-rate 11025   stored at 11 kHz (default, ~8 MB more), low-pass
+                       filtered, played back at 22 kHz with interpolation
+  --music-rate 22050   stored at the output rate: identical sound (~16 MB)
+  --music-codec pcm    16 bit PCM (default)
+  --music-codec adpcm  IMA ADPCM, 4 times smaller, slight hiss
   --no-music           do not pre-render the music
 
 Examples:
@@ -540,7 +543,7 @@ def write_pack(out_path, files, verbose=True):
 
 # --------------------------------------------------------------------------
 # Pre-rendered music (see src/port/gnw_music.c for the .MUS format)
-MUS_RATE = 22050          # output rate of the game on the Game & Watch
+OUTPUT_RATE = 22050       # output rate of the game on the Game & Watch
 ADPCM_BLOCK = 1024
 IMA_STEP = [7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 19, 21, 23, 25, 28, 31, 34, 37, 41, 45,
             50, 55, 60, 66, 73, 80, 88, 97, 107, 118, 130, 143, 157, 173, 190, 209, 230,
@@ -603,7 +606,7 @@ def ima_adpcm_encode(samples):
     return bytes(out)
 
 
-def encode_mus(raw, codec):
+def encode_mus(raw, codec, rate):
     samples = array.array("h")
     samples.frombytes(raw)
     if sys.byteorder != "little":
@@ -614,7 +617,7 @@ def encode_mus(raw, codec):
     else:
         data = ima_adpcm_encode(samples)
         codec_id = 1
-    return b"GWMU" + struct.pack("<HHII", 1, codec_id, MUS_RATE, len(samples)) + data
+    return b"GWMU" + struct.pack("<HHII", 1, codec_id, rate, len(samples)) + data
 
 
 def default_renderer():
@@ -655,7 +658,7 @@ def prepare_executable(path):
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def render_music(files, renderer, codec, verbose=True):
+def render_music(files, renderer, codec, rate, verbose=True):
     """Render every MIDI piece with the game's own code, return .MUS files."""
     tmp = tempfile.mkdtemp(prefix="pop_music_")
     try:
@@ -663,7 +666,7 @@ def render_music(files, renderer, codec, verbose=True):
         write_pack(pack, files, verbose=False)
         out_dir = os.path.join(tmp, "music")
         os.mkdir(out_dir)
-        r = subprocess.run([renderer, pack, "-R", out_dir, "-o", tmp, "-t", "3600000"],
+        r = subprocess.run([renderer, pack, "-R", out_dir, "-M", str(rate), "-o", tmp, "-t", "3600000"],
                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
         if r.returncode != 0:
             sys.stderr.write(r.stdout)
@@ -675,8 +678,8 @@ def render_music(files, renderer, codec, verbose=True):
                 continue
             with open(os.path.join(out_dir, name), "rb") as fh:
                 raw = fh.read()
-            total += len(raw) / 2 / MUS_RATE
-            result.append((name[:-4] + ".MUS", encode_mus(raw, codec)))
+            total += len(raw) / 2 / rate
+            result.append((name[:-4] + ".MUS", encode_mus(raw, codec, rate)))
         if not result:
             sys.stderr.write(r.stdout[-2000:])
             print("warning: the renderer (%s) produced no music: the pack is written without it\n"
@@ -684,18 +687,18 @@ def render_music(files, renderer, codec, verbose=True):
             return result
         if verbose:
             size = sum(len(b) for _, b in result)
-            print("music: %d pieces, %.0f s, %s, %d bytes" % (len(result), total, codec.upper(), size))
+            print("music: %d pieces, %.0f s, %s %d Hz, %d bytes" % (len(result), total, codec.upper(), rate, size))
         return result
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def build_pack(out_path, inputs, verbose=True, music=True, renderer=None, codec="pcm"):
+def build_pack(out_path, inputs, verbose=True, music=True, renderer=None, codec="pcm", rate=11025):
     files = collect_files(inputs, verbose)
     if music:
         renderer = renderer or default_renderer()
         if renderer:
-            files += render_music(files, renderer, codec, verbose)
+            files += render_music(files, renderer, codec, rate, verbose)
         elif verbose:
             print("note: music renderer not found (pop_render-* next to this script, 'make harness',\n"
                   "      or --renderer): the music will be synthesized live on the console (slower)")
@@ -710,6 +713,8 @@ def main():
     ap.add_argument("--no-music", action="store_true", help="do not pre-render the music")
     ap.add_argument("--music-codec", choices=("pcm", "adpcm"), default="pcm",
                     help="pcm: identical sound (default); adpcm: 4 times smaller")
+    ap.add_argument("--music-rate", type=int, choices=(11025, 22050), default=11025,
+                    help="11025: half the size (default); 22050: identical sound")
     ap.add_argument("--renderer", help="music renderer (harness/build/pop_host by default)")
     args = ap.parse_args()
     for d in args.inputs:
@@ -718,7 +723,7 @@ def main():
     if args.renderer and not os.path.isfile(args.renderer):
         sys.exit("error: renderer %s not found" % args.renderer)
     build_pack(args.output, args.inputs, verbose=not args.quiet, music=not args.no_music,
-               renderer=args.renderer, codec=args.music_codec)
+               renderer=args.renderer, codec=args.music_codec, rate=args.music_rate)
 
 
 if __name__ == "__main__":

@@ -46,8 +46,10 @@ console only plays it back, with the same sound.
   Windows, macOS); `pop_pack.py` picks the right one. From a checkout, build
   them with `tools/build_renderers.sh` (needs `pip install ziglang`) or use
   `make harness`.
-- The music adds about 16 MB to the pack (16 bit PCM). For a console with a
-  small external flash, `--music-codec adpcm` makes it 4 MB (slight hiss), and
+- The music is stored at 11 kHz by default (about 8 MB, the pack is 9 MB):
+  only the harmonics above ~5 kHz are lost. `--music-rate 22050` keeps the
+  full quality (16 MB, identical to the live synthesis), `--music-codec
+  adpcm` divides the size by 4 (slight hiss: 2 MB at 11 kHz), and
   `--no-music` keeps the old behaviour (live synthesis, 1.2 MB pack).
 
 ### Mods

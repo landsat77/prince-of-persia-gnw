@@ -40,6 +40,8 @@ void pop_core_set_music(bool on);
 /* Tools: render every MIDI music to <dir>/MIDInn.raw (mono, signed 16 bit,
  * output rate) as soon as the sounds are loaded, then quit. */
 void pop_core_set_render_dir(const char *dir);
+/* Tools: store the rendered music at half the output rate (low-pass filtered). */
+void pop_core_set_render_half_rate(bool half);
 void pop_core_set_sound(bool on);
 void pop_core_set_fixes(bool on);
 /* Restart the current level (like Ctrl+A). */
