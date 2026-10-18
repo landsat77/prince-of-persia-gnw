@@ -1,5 +1,8 @@
 # Prince of Persia for Game & Watch Retro-Go SD
 
+<img width="2880" height="2160" alt="image" src="https://github.com/user-attachments/assets/dc720570-a95f-4450-8bbc-586d2ea8e098" />
+
+
 The 1989/1990 DOS version of **Prince of Persia**, running on the Nintendo
 Game & Watch with the [Retro-Go SD](https://github.com/sylverb/game-and-watch-retro-go-sd)
 firmware, as a **GWHB homebrew**: a single `.bin` dropped in `/homebrews/`,
