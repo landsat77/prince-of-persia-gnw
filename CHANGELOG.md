@@ -7,6 +7,14 @@ section as the GitHub Release notes.
 
 ## [Unreleased]
 
+## [v1.2.1] - 2026-10-19
+
+### Added
+
+- A cover for the launcher's coverflow (the game's box and a room,
+  `src/assets/cover.png`, 128x96, encoded by `scripts/make_cover.py`)
+  instead of the generated title card.
+
 ## [v1.2.0] - 2026-10-17
 
 ### Changed
