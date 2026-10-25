@@ -78,6 +78,11 @@ Each `.bin` loads the `.pop` file that has its name.
 | TIME (SELECT on Zelda units) | Show the remaining time (Space) |
 | PAUSE/SET | Retro-Go menu |
 
+**Hall of Fame** (after the end of the game): the name is entered with the
+buttons. Up/Down (or B) choose the letter under the cursor (held: they
+repeat), Right or A adds a letter, Left removes the last one, GAME or TIME
+accepts the name.
+
 The Retro-Go menu adds savestates (they can be made while a level is
 running, not on the title screen or in cutscenes) and the game options:
 Music on/off (the MIDI music is emulated with an OPL3 chip and is the most

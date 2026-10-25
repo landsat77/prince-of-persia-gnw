@@ -1272,6 +1272,15 @@ void play_guard_frame() {
 
 // seg000:0FBD
 void check_the_end() {
+#ifdef GNW
+	extern int gnw_test_win;
+	if (gnw_test_win) { // tests of the end sequence (harness -W)
+		gnw_test_win = 0;
+		current_level = custom->win_level;
+		next_room = custom->win_room;
+		drawn_room = 0;
+	}
+#endif
 	if (next_room != 0 && next_room != drawn_room) {
 		drawn_room = next_room;
 		load_room_links();

@@ -14,6 +14,8 @@
 int gnw_in_level_loop;
 /* Set by play_level() (seg003.c, GNW patch) while play_level_2() runs. */
 int gnw_level_active;
+/* Harness (-W): the next check_the_end() takes the kid to the winning room. */
+int gnw_test_win;
 
 static pop_core_options_t core_opts;
 static char pending_load_path[256];

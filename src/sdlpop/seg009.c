@@ -1728,6 +1728,113 @@ void draw_text_cursor(int xpos,int ypos,int color) {
 }
 
 // seg009:053C
+#ifdef GNW
+// Game & Watch: no keyboard. The name is entered with the buttons, one
+// character at a time: Up/Down (or B, which is Up) change the character
+// under the cursor (held: repeats), Right or A adds the next character,
+// Left removes the last one, GAME/START or TIME/SELECT (Esc or Space)
+// accepts the name. Used for the Hall of Fame (end_sequence) and the
+// in-game dialogs that ask for text.
+static const char gnw_name_chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .-!'";
+#define GNW_NAME_CHARS ((int)sizeof(gnw_name_chars) - 1)
+
+static int gnw_char_index(char c) {
+	for (int i = 0; i < GNW_NAME_CHARS; i++) if (gnw_name_chars[i] == c) return i;
+	return 0;
+}
+
+static void gnw_draw_name(const rect_type* rect, const char* buffer, int length, int arg_4, int ypos,
+                          int color, int bgcolor, int cursor) {
+	draw_rect(rect, bgcolor);
+	short xpos = rect->left + arg_4;
+	set_curr_pos(xpos, ypos);
+	textstate.textcolor = color;
+	for (int i = 0; i < length - 1; i++) xpos += draw_text_character(buffer[i]);
+	// The character being chosen, underlined while the cursor blinks on.
+	set_curr_pos(xpos, ypos);
+	textstate.textcolor = color;
+	draw_text_character(buffer[length - 1]);
+	if (cursor) draw_text_cursor(xpos, ypos, color);
+	textstate.textcolor = 15;
+}
+
+int input_str(const rect_type* rect,char* buffer,int max_length,const char *initial,int has_initial,int arg_4,int color,int bgcolor) {
+	short ypos = get_text_center_y(rect);
+	int length;
+	if (has_initial && initial[0]) {
+		strncpy(buffer, initial, max_length);
+		buffer[max_length] = 0;
+		length = strlen(buffer);
+	} else {
+		buffer[0] = 'A';
+		length = 1;
+	}
+	int cursor = 1;
+	Uint32 next_blink = SDL_GetTicks() + 250;
+	Uint32 repeat_at = 0;
+	int repeat_dir = 0;
+	clear_kbd_buf();
+	key_states[SDL_SCANCODE_LSHIFT] &= ~KEYSTATE_HELD_NEW;	// a press from before
+	gnw_draw_name(rect, buffer, length, arg_4, ypos, color, bgcolor, cursor);
+	while (1) {
+		idle();
+		int key = key_test_quit() & ~(WITH_SHIFT | WITH_CTRL | WITH_ALT);
+		int shift = (key_states[SDL_SCANCODE_LSHIFT] & KEYSTATE_HELD_NEW) != 0;
+		if (shift) key_states[SDL_SCANCODE_LSHIFT] &= ~KEYSTATE_HELD_NEW;
+		int changed = 0;
+		Uint32 now = SDL_GetTicks();
+
+		int dir = 0;
+		if (key == SDL_SCANCODE_UP) dir = 1;
+		else if (key == SDL_SCANCODE_DOWN) dir = -1;
+		if (dir) {
+			repeat_dir = dir;
+			repeat_at = now + 400;
+		} else if (repeat_dir && (key_states[repeat_dir > 0 ? SDL_SCANCODE_UP : SDL_SCANCODE_DOWN] & KEYSTATE_HELD)) {
+			if ((Sint32)(now - repeat_at) >= 0) {
+				dir = repeat_dir;
+				repeat_at = now + 90;
+			}
+		} else {
+			repeat_dir = 0;
+		}
+		if (dir) {
+			int i = (gnw_char_index(buffer[length - 1]) + dir + GNW_NAME_CHARS) % GNW_NAME_CHARS;
+			buffer[length - 1] = gnw_name_chars[i];
+			changed = 1;
+		}
+
+		if ((key == SDL_SCANCODE_RIGHT || shift) && length < max_length) {
+			// Would the next character still fit in the rect?
+			short width = 0;
+			for (int i = 0; i < length; i++) width += get_char_width(buffer[i]);
+			if (rect->left + arg_4 + width + get_char_width('W') + get_char_width('_') < rect->right) {
+				buffer[length] = buffer[length - 1] == ' ' ? 'A' : buffer[length - 1];
+				length++;
+				changed = 1;
+			}
+		} else if (key == SDL_SCANCODE_LEFT && length > 1) {
+			length--;
+			changed = 1;
+		} else if (key == SDL_SCANCODE_ESCAPE || key == SDL_SCANCODE_SPACE || key == SDL_SCANCODE_RETURN) {
+			while (length > 0 && buffer[length - 1] == ' ') length--;	// trailing spaces
+			buffer[length] = 0;
+			gnw_draw_name(rect, buffer, length > 0 ? length : 1, arg_4, ypos, color, bgcolor, 0);
+			if (length == 0) draw_rect(rect, bgcolor);
+			clear_kbd_buf();
+			return length > 0 ? length : 0;
+		}
+
+		if ((Sint32)(now - next_blink) >= 0) {
+			cursor = !cursor;
+			next_blink = now + 250;
+			changed = 1;
+		}
+		if (changed) gnw_draw_name(rect, buffer, length, arg_4, ypos, color, bgcolor, cursor);
+		delay_ticks(1);
+	}
+}
+#else
 int input_str(const rect_type* rect,char* buffer,int max_length,const char *initial,int has_initial,int arg_4,int color,int bgcolor) {
 	// Display the screen keyboard if supported.
 	//SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1");
@@ -1810,6 +1917,7 @@ int input_str(const rect_type* rect,char* buffer,int max_length,const char *init
 		}
 	} while(1);
 }
+#endif // GNW
 
 #else // USE_TEXT
 

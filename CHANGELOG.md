@@ -7,6 +7,18 @@ section as the GitHub Release notes.
 
 ## [Unreleased]
 
+## [v1.2.2] - 2026-10-25
+
+### Fixed
+
+- The game could not be finished: the Hall of Fame asks for the player's
+  name, typed on a keyboard, and the Game & Watch has none (the end
+  sequence waited forever). The name is now entered with the buttons:
+  Up/Down (or B) choose the letter, Right or A adds a letter, Left removes
+  the last one, GAME or TIME accepts the name.
+- Harness: `-W <ms>` jumps to the winning room (tests the end sequence and
+  the name entry).
+
 ## [v1.2.1] - 2026-10-19
 
 ### Added

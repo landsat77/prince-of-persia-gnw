@@ -27,7 +27,9 @@ folder of SDLPoP.
 
 Controls: D-pad = move, A = action (grab, pick up, strike), B = jump,
 GAME = pause, TIME = remaining time, PAUSE/SET = Retro-Go menu (savestates,
-music, sound, bug fixes, restart level).
+music, sound, bug fixes, restart level). Hall of Fame name, at the end of
+the game: Up/Down (or B) = letter, Right or A = next letter, Left = erase,
+GAME or TIME = done.
 
 ---
 
@@ -60,4 +62,6 @@ Les données du jeu ne sont pas fournies : il faut les fichiers du jeu DOS
 
 Commandes : croix = déplacements, A = action (s'accrocher, ramasser, frapper),
 B = saut, GAME = pause, TIME = temps restant, PAUSE/SET = menu Retro-Go
-(sauvegardes, musique, son, corrections, recommencer le niveau).
+(sauvegardes, musique, son, corrections, recommencer le niveau). Nom du
+Hall of Fame, à la fin du jeu : haut/bas (ou B) = lettre, droite ou A =
+lettre suivante, gauche = effacer, GAME ou TIME = valider.
